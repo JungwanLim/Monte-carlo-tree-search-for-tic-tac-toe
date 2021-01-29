@@ -5,7 +5,7 @@ class Board:
     def __init__(self):
         self.board = None
         self.board_size = 3
-
+        
     def set_board(self):
         self.board = [[0, 0, 0], [ 0, 0, 0], [ 0, 0, 0]]
 
@@ -17,16 +17,6 @@ class Board:
 
     # def get_cell(self, row, col):
     #     return self.board[row][col]
-
-    # 3x3 board에서 빈 셀을 찾아서 넘겨주는 함수
-    # def get_empty_cells(self):
-    #     # 보드의 빈 공간들을 저장할 리스트
-    #     empty_cells = []
-    #     for row in range(self.board_size):
-    #         for col in range(self.board_size):
-    #             if self.board[row][col] == 0:
-    #                 empty_cells.append([row, col])
-    #     return empty_cells        
 
     def get_row_col(self, position):
         row = int(position / self.board_size)
@@ -49,7 +39,7 @@ class Board:
             for col in range(self.board_size):
                 if self.board[row][col] == 0:
                     empty_positions.append(row * self.board_size + col)
-        return empty_positions        
+        return empty_positions
 
     def get_count(self, player, point, dir_index):
         direction = [[1, 0], [-1, 0], [1, 1], [-1, -1], [0, 1], [0, -1], [-1, 1], [1, -1]]
@@ -69,11 +59,9 @@ class Board:
                     y += dy
         return count == self.board_size
 
-
 class Display:
-    def __init__(self, board):
+    def __init__(self):
         print("Tic Tac Toe v1.0")
-        self.board = board
         self.player_list = [' ', 'X', 'O']
         self.str_board = None
 
@@ -99,18 +87,15 @@ class Display:
             if value_list.find(value) < 0:
                 print("입력이 잘못되었습니다. 1 ~ 9 사이의 숫자를 입력하세요.")
                 continue
-            value = int(value)
-            if self.board.get_cell(value - 1) != 0:
-                print("이미 놓인 자리입니다.")
-            else:
-                self.board.set_cell(value - 1, player)
-                self.mark_str_board(value, player)
-                self.print_str_board()
-                return value - 1
+            return int(value) - 1
 
-    def show_message(self, player):
-        msg = ["Draw!!", "X Player won!!", "O Player won!!"]
+    def show_message(self, player = 3):
+        msg = ["Draw!!", "X Player won!!", "O Player won!!", "이미 놓인 자리입니다."]
         print(msg[player])
+
+    def show_order(self, player):
+        order = ["User 차례입니다.", "AI 차례입니다."]
+        print(order[player - 1])
                 
     def is_continue(self):
         while True:
@@ -121,53 +106,18 @@ class Display:
                 break
         return True
 
-
 class Player(metaclass = ABCMeta):
-    @abstractmethod
-    def action(self):
-        pass
+    board = None
+    display = None
+    # def __init__(self):
+    #     self.board = board
+    #     self.display = display
 
-class User(Player):
-    def __init__(self, display):
-        self.ID = 1
-        self.display = display
-
-    def action(self):
-        return self.display.input_data(self.ID)
-
-    def show_me(self):
-        print("User 차례입니다.")
-
-
-class AI(Player):
-    def __init__(self, board, display):
-        self.ID = 2
-        self.board = board
-        self.display = display
-
-    def action(self):
-        position = random.choice(self.board.get_empty_positions())
-        self.board.set_cell(position, self.ID)
-        self.display.mark_str_board(position + 1, self.ID)
+    def show_result(self, position, player):
+        self.board.set_cell(position, player)
+        self.display.mark_str_board(position + 1, player)
         self.display.print_str_board()
         return position
-
-    def show_me(self):
-        print("AI 차례입니다.")
-
-
-class Tictactoe:
-    def __init__(self):
-        self.board = Board()
-        self.display = Display(self.board)
-        self.user = User(self.display)
-        self.computer = AI(self.board, self.display)
-        self.player = [self.user, self.computer]
-
-    def init_game(self):
-        self.board.set_board()
-        self.display.set_str_board()
-        self.display.print_str_board()
 
     def is_win(self, player, point):
         dir_index = 0
@@ -191,18 +141,64 @@ class Tictactoe:
             return False
         return True
 
+    @abstractmethod
+    def action(self):
+        pass
+
+class User(Player):
+    def __init__(self):
+        self.ID = 1
+
+    def action(self):
+        while True:
+            position = self.display.input_data(self.ID)
+            if self.board.get_cell(position) != 0:
+                self.display.show_message()
+            else:
+                return self.show_result(position, self.ID)
+
+    def show_order(self):
+        self.display.show_order(self.ID)
+
+
+class AI(Player):
+    def __init__(self):
+        self.ID = 2
+
+    def action(self):
+        position = random.choice(self.board.get_empty_positions())
+        return self.show_result(position, self.ID)
+
+    def show_order(self):
+        self.display.show_order(self.ID)
+
+class Tictactoe:
+    def __init__(self):
+        self.board = Board()
+        self.display = Display()
+        Player.board = self.board
+        Player.display = self.display
+        self.user = User()
+        self.computer = AI()
+        self.player = [self.user, self.computer]
+
+    def init_game(self):
+        self.board.set_board()
+        self.display.set_str_board()
+        self.display.print_str_board()
+
     def is_continue(self):
         return self.display.is_continue()
 
     def play_game(self):
         player = random.choice(self.player)
         while True:
-            player.show_me()
+            player.show_order()
             position = player.action()
             row, col = self.board.get_row_col(position)
-            if self.is_finish(player.ID, [col, row]):
+            if player.is_finish(player.ID, [col, row]):
                 break
-            player = self.player[3 - player.ID - 1]
+            player = self.player[3 - player.ID - 1]        
 
 def main():
     ttt = Tictactoe()
@@ -213,4 +209,4 @@ def main():
             break
 
 if __name__ == "__main__":
-    main()            
+    main()  
