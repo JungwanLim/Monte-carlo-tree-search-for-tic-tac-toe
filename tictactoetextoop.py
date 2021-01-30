@@ -1,11 +1,27 @@
 import random
 from abc import*
 
+LEFT = (-1, 0)
+RIGHT = (1, 0)
+UP = (0, 1)
+DOWN = (0, -1)
+LEFT_UP = (-1, 1)
+RIGHT_DOWN = (1, -1)
+LEFT_DOWN = (-1, -1)
+RIGHT_UP = (1, 1)
+
+ROW = [LEFT, RIGHT]
+COLUMN = [UP, DOWN]
+DIAGONAL1 = [LEFT_UP, RIGHT_DOWN]
+DIAGONAL2 = [LEFT_DOWN, RIGHT_UP]
+
+# Board의 상태를 저장하고, 관리한다.
 class Board:
     def __init__(self):
-        self.board = None
+        self.board = None # 여러 게임을 하기 위해서 생성자에서 초기화 하지 않음
         self.board_size = 3
-        
+
+    # 새 게임이 시작되면 0으로 초기화 된다.    
     def set_board(self):
         self.board = [[0, 0, 0], [ 0, 0, 0], [ 0, 0, 0]]
 
@@ -17,21 +33,28 @@ class Board:
 
     # def get_cell(self, row, col):
     #     return self.board[row][col]
-
+    
+    # [1, 2, 3]
+    # [4, 5, 6]
+    # [7, 8, 9]
+    # 사용자가 입력이 편리하도록 위처럼 보여지는데 
+    # 위치의 번호를 보드의 형식인 좌표(0, 1)값으로 바꿔 주고 결과를 리턴한다.
     def get_row_col(self, position):
-        row = int(position / self.board_size)
+        row = int(position / self.board_size) 
         col = int(position % self.board_size)
         return row, col
 
+    # 좌표의 위치에 player(1 또는 2)를 저장
     def set_cell(self, position, player):
         row, col = self.get_row_col(position)
         self.board[row][col] = player
 
+    # 좌표의 위치에 저장된 값(0, 1, 2 중 어떤)을 리턴해준다.
     def get_cell(self, position):
         row, col = self.get_row_col(position)
         return self.board[row][col]
 
-    # 3x3 board에서 빈 셀을 찾아서 넘겨주는 함수
+    # 컴퓨터가 매번 빈 셀을 선택하도록 빈 셀만을 골라 리턴해준다.
     def get_empty_positions(self):
         # 보드의 빈 공간들을 저장할 리스트
         empty_positions = []
@@ -41,35 +64,37 @@ class Board:
                     empty_positions.append(row * self.board_size + col)
         return empty_positions
 
-    def get_count(self, player, point, dir_index):
-        direction = [[1, 0], [-1, 0], [1, 1], [-1, -1], [0, 1], [0, -1], [-1, 1], [1, -1]]
-        count = 1
-        for i in range(2):
-            dx, dy = direction[i + dir_index]
-            x = point[0] + dx
-            y = point[1] + dy
+    # 행, 열 또는 두 대각선을 검사하여 같은 모양의 개수를 count하여 리턴
+    def get_count(self, player, point, direction):
+        count = 1 #처음 한 수를 둔 자리를 기준으로 검사
+        for dir in direction: # ROW, COLUMN등 한 방향
+            dx, dy = dir[0], dir[1] # LEFT(-1, 0) 등
+            x, y  = point[0] + dx, point[1] + dy # 한 칸 이동한 값
             while True:
+                # 보드의 범위를 벗어났나 검사
                 if x < 0 or x >= self.board_size or y < 0 or y >= self.board_size:
                     break
+                # 같은 모양이 아니면 탈출
                 elif self.board[y][x] != player:
                     break
                 else:
-                    count += 1
-                    x += dx
-                    y += dy
+                    count += 1 #같은 모양이면 count 증가하고
+                    x, y = x + dx, y + dy # 또 한칸을 이동
         return count == self.board_size
 
+# 화면에 출력하는 역할을 하는 class
 class Display:
     def __init__(self):
         print("Tic Tac Toe v1.0")
         self.player_list = [' ', 'X', 'O']
-        self.str_board = None
+        self.str_board = None # 여러 게임을 하기 위하여 별도의 초기화 함수를 둠
 
     def set_str_board(self):
         self.str_board = "[1, 2, 3]\n"\
                          "[4, 5, 6]\n"\
                          "[7, 8, 9]\n"
 
+    # 현재 두어진 상태를 화면에 표시
     def print_str_board(self):
         print(self.str_board)
 
@@ -87,8 +112,11 @@ class Display:
             if value_list.find(value) < 0:
                 print("입력이 잘못되었습니다. 1 ~ 9 사이의 숫자를 입력하세요.")
                 continue
+            # 보드는 (0,0)으로 시작하므로 1을 빼줘야 정확한 좌표계산이 가능
+            # 착수한 위치의 번호를 넘겨준다.
             return int(value) - 1
 
+    # 화면에 필요한 message를 출력해준다.
     def show_message(self, player = 3):
         msg = ["Draw!!", "X Player won!!", "O Player won!!", "이미 놓인 자리입니다."]
         print(msg[player])
@@ -106,32 +134,36 @@ class Display:
                 break
         return True
 
+# 컴퓨터와 사람은 두는 방법이 다르므로 추상클래스와 상속을 통해 다형성 구현
 class Player(metaclass = ABCMeta):
+    # Board와 Display는 사람과 컴퓨터가 공유하여야 하기 때문에 클래스 멤버로 선언
     board = None
-    display = None
-    # def __init__(self):
-    #     self.board = board
-    #     self.display = display
+    display = None  
 
+    # 사람이나 컴퓨터나 착수를 하고나서 보드에 저장하고 화면에 출력하는 동작은 같으므로 부모 클래스에
     def show_result(self, position, player):
-        self.board.set_cell(position, player)
-        self.display.mark_str_board(position + 1, player)
-        self.display.print_str_board()
+        self.board.set_cell(position, player) # 보드에 저장
+        self.display.mark_str_board(position + 1, player) # 화면에 보여질 보드에 저장
+        self.display.print_str_board() # 한 수 둔 결과를 보여줌
         return position
 
+    # 승리를 검사하는 함수
     def is_win(self, player, point):
-        dir_index = 0
-        for i in range(4):
-            if self.board.get_count(player, point, dir_index):
+        # 가로 세로 대각선 순으로 검사한다.
+        directions = [ROW, COLUMN, DIAGONAL1, DIAGONAL2]
+        for direction in directions:
+            if self.board.get_count(player, point, direction):
                 return True
-            dir_index += 2
         return False
 
+    # 비겼나 검사하는 함수
     def is_draw(self):
+        # 빈 셀이 없고, 승리한 Player가 없으면 비긴다.
         if self.board.get_empty_positions() == []:
             return True
         return False
 
+    # 게임이 끝이났나 검사
     def is_finish(self, player, point):
         if self.is_win(player, point):
             self.display.show_message(player)
@@ -141,24 +173,29 @@ class Player(metaclass = ABCMeta):
             return False
         return True
 
+    def show_order(self, id):
+        self.display.show_order(id)
+
+    # Player가 착수 하는 행위를 하는 함수 child class에 반드시 구현되어야 함
     @abstractmethod
     def action(self):
         pass
 
+# 사람 클래스
 class User(Player):
     def __init__(self):
+        # Player는 고유한 ID(또는 모양 'X')을 가진다.
         self.ID = 1
 
     def action(self):
+        # 실수로 이미 둔곳에 다시 두려할 때 이를 방지하기 위하여 반복문 사용
         while True:
             position = self.display.input_data(self.ID)
+            # 새롭게 착수 하려는 곳이 0이 아니라면 이미 둔곳이다.
             if self.board.get_cell(position) != 0:
                 self.display.show_message()
             else:
                 return self.show_result(position, self.ID)
-
-    def show_order(self):
-        self.display.show_order(self.ID)
 
 
 class AI(Player):
@@ -166,13 +203,13 @@ class AI(Player):
         self.ID = 2
 
     def action(self):
+        # 컴퓨터는 보드로부터 빈 셀들을 넘겨받아 한 곳을 랜덤하게 고른다.
         position = random.choice(self.board.get_empty_positions())
         return self.show_result(position, self.ID)
 
-    def show_order(self):
-        self.display.show_order(self.ID)
-
+# 게임을 관리하고 진행하는 클래스
 class Tictactoe:
+    # 이곳에서 모든 객체를 생성한다.
     def __init__(self):
         self.board = Board()
         self.display = Display()
@@ -180,6 +217,7 @@ class Tictactoe:
         Player.display = self.display
         self.user = User()
         self.computer = AI()
+        # if문을 생략하기 위해서 list사용
         self.player = [self.user, self.computer]
 
     def init_game(self):
@@ -190,19 +228,26 @@ class Tictactoe:
     def is_continue(self):
         return self.display.is_continue()
 
+    # 실제로 게임이 진행되는 곳
     def play_game(self):
+        # 게임이 시작되면 선을 가린다.
         player = random.choice(self.player)
-        while True:
-            player.show_order()
+        while True: # 게임이 끝날 때까지 계속 반복
+            # 누구 차례인지 화면에 출력
+            player.show_order(player.ID)
             position = player.action()
             row, col = self.board.get_row_col(position)
             if player.is_finish(player.ID, [col, row]):
                 break
-            player = self.player[3 - player.ID - 1]        
+            # 선수 교체(Turn을 바꿈)
+            player = self.player[3 - player.ID - 1]       
+
 
 def main():
+    # 게임을 관리하는 객체만 있으면 됨
     ttt = Tictactoe()
     while True:
+        # 게임시 시작되면 필요한 데이터를 초기화
         ttt.init_game()
         ttt.play_game()
         if not ttt.is_continue():
