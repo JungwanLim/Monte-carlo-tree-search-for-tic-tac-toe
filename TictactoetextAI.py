@@ -139,9 +139,9 @@ class Player(metaclass = ABCMeta):
     # Board와 Display는 사람과 컴퓨터가 공유하여야 하기 때문에 클래스 멤버로 선언
     board = None
     display = None  
+    winner = 0
 
-    # 사람이나 컴퓨터나 착수를 하고나서 보드에 저장하고 화면에 출력하는 동작은 같으므로 
-    # 부모 클래스에 둔다.
+    # 사람이나 컴퓨터나 착수를 하고나서 보드에 저장하고 화면에 출력하는 동작은 같으므로 부모 클래스에
     def show_result(self, position, player):
         self.board.set_cell(position, player) # 보드에 저장
         self.display.mark_str_board(position + 1, player) # 화면에 보여질 보드에 저장
@@ -167,9 +167,11 @@ class Player(metaclass = ABCMeta):
     # 게임이 끝이났나 검사
     def is_finish(self, player, point):
         if self.is_win(player, point):
-            self.display.show_message(player)
+            self.winner = player
+            #self.display.show_message(player)
         elif self.is_draw():
-            self.display.show_message(0)
+            self.winner = 0
+            #self.display.show_message(0)
         else:
             return False
         return True
@@ -201,12 +203,70 @@ class User(Player):
 
 class AI(Player):
     def __init__(self):
+        self.first = False
         self.ID = 2
+        self.depth = 9
+        # self.best_position = -1
+        self.score_positions = []
 
     def action(self):
         # 컴퓨터는 보드로부터 빈 셀들을 넘겨받아 한 곳을 랜덤하게 고른다.
-        position = random.choice(self.board.get_empty_positions())
+        # position = random.choice(self.board.get_empty_positions())
+        if self.first:
+            position = random.randint(0, 8)
+            self.first = False
+        else:
+            self.minimax(self.depth, self.ID)
+            position = self.get_best_position()
+        # self.best_position = -1
+        self.score_positions = []
         return self.show_result(position, self.ID)
+
+    def get_best_position(self):
+        max = -1
+        for best in self.score_positions:
+            if best[1] > max:
+                max = best[1]
+                self.best_position = best[0]
+        return self.best_position
+
+    def evaluation(self):
+        if self.winner == self.ID:
+            return 1
+        elif self.winner == 0:
+            return 0
+        else:
+            return -1
+
+    def minimax(self, depth, player, position = -1):
+        if position >= 0:
+            row, col = self.board.get_row_col(position)
+            if self.is_finish(3-player, [col, row]):
+                return self.evaluation()
+        positions = self.board.get_empty_positions()
+        max_score = - 100
+        min_score = 100
+        for position in positions:
+            if depth and player == self.ID:
+                self.board.set_cell(position, player)
+                score = self.minimax(depth - 1, 3 - player, position)
+                self.board.set_cell(position, 0)
+                if max_score < score:
+                    max_score = score
+                if depth == self.depth:
+                    self.score_positions.append([position, max_score])
+
+            if depth and player != self.ID:
+                self.board.set_cell(position, player)
+                score = self.minimax(depth - 1, 3 - player, position)
+                self.board.set_cell(position, 0)
+                if min_score > score:
+                    min_score = score
+
+        if player == self.ID:
+            return max_score
+        else:
+            return min_score
 
 # 게임을 관리하고 진행하는 클래스
 class Tictactoe:
@@ -229,21 +289,31 @@ class Tictactoe:
     def is_continue(self):
         return self.display.is_continue()
 
+    # 게임이 끝이났나 검사
+    def is_finish(self, player, point):
+        if player.is_win(player.ID, point):
+            self.display.show_message(player.ID)
+        elif player.is_draw():
+            self.display.show_message(0)
+        else:
+            return False
+        return True
+
     # 실제로 게임이 진행되는 곳
     def play_game(self):
         # 게임이 시작되면 선을 가린다.
         player = random.choice(self.player)
+        if player.ID == 2:
+            player.first = True
         while True: # 게임이 끝날 때까지 계속 반복
             # 누구 차례인지 화면에 출력
             player.show_order(player.ID)
             position = player.action()
             row, col = self.board.get_row_col(position)
-            if player.is_finish(player.ID, [col, row]):
+            if self.is_finish(player, [col, row]):
                 break
             # 선수 교체(Turn을 바꿈)
-            # 2 - 1(User)은 1(self.computer)이 되고, 
-            # 2 - 2(AI)는 0(self.user)이 되어 turn이 바뀌게 된다.
-            player = self.player[2 - player.ID]       
+            player = self.player[2 - player.ID]      
 
 
 def main():
