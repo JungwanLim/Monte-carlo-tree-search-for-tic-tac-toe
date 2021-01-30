@@ -240,7 +240,7 @@ class Tictactoe:
             if player.is_finish(player.ID, [col, row]):
                 break
             # 선수 교체(Turn을 바꿈)
-            player = self.player[3 - player.ID - 1]       
+            player = self.player[2 - player.ID]       
 
 
 def main():
