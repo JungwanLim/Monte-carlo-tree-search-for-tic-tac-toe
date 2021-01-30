@@ -1,4 +1,16 @@
 ## Tictactoe
 
-Tic Tac Toe for study Python and study Git
+블로그에 파일을 올리고 다른 곳에서 다운로드 하려하였더니 안되는 경우가 종종발생하여서
+
+깃을 배우고 이곳에 올려봅니다.
+
+파이썬을 다시 공부하면서 간단한 게임부터 다시 시작하였고
+
+틱택토가 만만하여 첫번째 프로젝트로 시작하였습니다.
+
+Tictactoetextoop.py를 작성하고 Git을 배워서 OOP먼저 올리고 처음 만들었던 파일을 수정하면서 나중에 같이 올림
+
+처음 만들었던 Tictactoetext.py에 대한 간단한 설명을 올렸으니 필요한 분은 참고하세요.
+
+https://blog.naver.com/seongwon1963/222218123856
 
