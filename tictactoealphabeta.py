@@ -257,6 +257,8 @@ class AI(Player):
                 self.board.set_zero(position)
                 min_score = min(min_score, score)
                 beta = min(beta, min_score)
+                if alpha >= beta:
+                    break
 
         if player == self.ID:
             return max_score
