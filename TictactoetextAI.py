@@ -18,43 +18,47 @@ DIAGONAL2 = [LEFT_DOWN, RIGHT_UP]
 # Board의 상태를 저장하고, 관리한다.
 class Board:
     def __init__(self):
-        self.board = None # 여러 게임을 하기 위해서 생성자에서 초기화 하지 않음
+        self.board = None
         self.board_size = 3
-
-    # 새 게임이 시작되면 0으로 초기화 된다.    
+        self.current_position = 0
+        self.count = 0
+        
     def set_board(self):
         self.board = [[0, 0, 0], [ 0, 0, 0], [ 0, 0, 0]]
+        self.count = 0
 
-    # def get_board(self):
-    #     return self.board
-
-    # def set_cell(self, row, col, player):
-    #     self.board[row][col] = player
-
-    # def get_cell(self, row, col):
-    #     return self.board[row][col]
-    
-    # [1, 2, 3]
-    # [4, 5, 6]
-    # [7, 8, 9]
-    # 사용자가 입력이 편리하도록 위처럼 보여지는데 
-    # 위치의 번호를 보드의 형식인 좌표(0, 1)값으로 바꿔 주고 결과를 리턴한다.
     def get_row_col(self, position):
-        row = int(position / self.board_size) 
+        row = int(position / self.board_size)
         col = int(position % self.board_size)
         return row, col
 
-    # 좌표의 위치에 player(1 또는 2)를 저장
     def set_cell(self, position, player):
         row, col = self.get_row_col(position)
         self.board[row][col] = player
+        self.current_position = position
+        self.count += 1
 
-    # 좌표의 위치에 저장된 값(0, 1, 2 중 어떤)을 리턴해준다.
+    def set_zero(self, position):
+        row, col = self.get_row_col(position)
+        self.board[row][col] = 0
+        self.count -= 1
+
+    def get_cell_count(self):
+        return self.count
+
+    def get_xy_point(self, position):
+        y, x = self.get_row_col(position)
+        return [x, y]
+
+    def get_xy_value(self, position, dx, dy):
+        y, x = self.get_row_col(position)
+        return x + dx, y + dy
+
     def get_cell(self, position):
         row, col = self.get_row_col(position)
         return self.board[row][col]
 
-    # 컴퓨터가 매번 빈 셀을 선택하도록 빈 셀만을 골라 리턴해준다.
+    # 3x3 board에서 빈 셀을 찾아서 넘겨주는 함수
     def get_empty_positions(self):
         # 보드의 빈 공간들을 저장할 리스트
         empty_positions = []
@@ -65,11 +69,11 @@ class Board:
         return empty_positions
 
     # 행, 열 또는 두 대각선을 검사하여 같은 모양의 개수를 count하여 리턴
-    def get_count(self, player, point, direction):
+    def get_count(self, player,direction):
         count = 1 #처음 한 수를 둔 자리를 기준으로 검사
         for dir in direction: # ROW, COLUMN등 한 방향
             dx, dy = dir[0], dir[1] # LEFT(-1, 0) 등
-            x, y  = point[0] + dx, point[1] + dy # 한 칸 이동한 값
+            x, y = self.get_xy_value(self.current_position, dx, dy)
             while True:
                 # 보드의 범위를 벗어났나 검사
                 if x < 0 or x >= self.board_size or y < 0 or y >= self.board_size:
@@ -149,128 +153,113 @@ class Player(metaclass = ABCMeta):
         return position
 
     # 승리를 검사하는 함수
-    def is_win(self, player, point):
+    def is_win(self, player):
         # 가로 세로 대각선 순으로 검사한다.
         directions = [ROW, COLUMN, DIAGONAL1, DIAGONAL2]
         for direction in directions:
-            if self.board.get_count(player, point, direction):
+            if self.board.get_count(player, direction):
                 return True
         return False
 
-    # 비겼나 검사하는 함수
     def is_draw(self):
-        # 빈 셀이 없고, 승리한 Player가 없으면 비긴다.
-        if self.board.get_empty_positions() == []:
+        if self.board.get_cell_count() == 9:
             return True
         return False
 
-    # 게임이 끝이났나 검사
-    def is_finish(self, player, point):
-        if self.is_win(player, point):
-            self.winner = player
-            #self.display.show_message(player)
-        elif self.is_draw():
-            self.winner = 0
-            #self.display.show_message(0)
-        else:
-            return False
-        return True
+    def show_order(self, player):
+        self.display.show_order(player)
 
-    def show_order(self, id):
-        self.display.show_order(id)
-
-    # Player가 착수 하는 행위를 하는 함수 child class에 반드시 구현되어야 함
     @abstractmethod
     def action(self):
         pass
 
-# 사람 클래스
 class User(Player):
     def __init__(self):
-        # Player는 고유한 ID(또는 모양 'X')을 가진다.
         self.ID = 1
 
     def action(self):
-        # 실수로 이미 둔곳에 다시 두려할 때 이를 방지하기 위하여 반복문 사용
         while True:
             position = self.display.input_data(self.ID)
-            # 새롭게 착수 하려는 곳이 0이 아니라면 이미 둔곳이다.
             if self.board.get_cell(position) != 0:
                 self.display.show_message()
             else:
                 return self.show_result(position, self.ID)
 
-
 class AI(Player):
     def __init__(self):
         self.first = False
         self.ID = 2
-        self.depth = 9
-        # self.best_position = -1
-        self.score_positions = []
-
-    def action(self):
-        # 컴퓨터는 보드로부터 빈 셀들을 넘겨받아 한 곳을 랜덤하게 고른다.
-        # position = random.choice(self.board.get_empty_positions())
-        if self.first:
-            position = random.randint(0, 8)
-            self.first = False
-        else:
-            self.minimax(self.depth, self.ID)
-            position = self.get_best_position()
-        # self.best_position = -1
-        self.score_positions = []
-        return self.show_result(position, self.ID)
+        self.depth = 7
+        self.best_positions = []
 
     def get_best_position(self):
-        max = -1
-        for best in self.score_positions:
-            if best[1] > max:
+        max = self.best_positions[0][1]
+        best_position = self.best_positions[0][0]
+        for best in self.best_positions[1:]:
+            if max < best[1]:
                 max = best[1]
-                self.best_position = best[0]
-        return self.best_position
+                best_position = best[0]
+        return best_position
+
+    def get_first_position(self):
+        return random.randint(0, 8)
+
+    def is_finish(self, player):
+        if self.is_win(player):
+            self.winner = player
+        elif self.board.get_cell_count() == 9:
+            self.winner = 0
+        else:
+            return False
+        return True
 
     def evaluation(self):
         if self.winner == self.ID:
+            self.winner = 0
             return 1
         elif self.winner == 0:
             return 0
         else:
+            self.winner = 0
             return -1
 
-    def minimax(self, depth, player, position = -1):
-        if position >= 0:
-            row, col = self.board.get_row_col(position)
-            if self.is_finish(3-player, [col, row]):
-                return self.evaluation()
+    def action(self):
+        if self.first:
+            position = self.get_first_position()
+            self.first = False
+        else:
+            self.minimax(self.depth, self.ID)
+            position = self.get_best_position()
+            self.best_positions = []
+        return self.show_result(position, self.ID)
+
+    def minimax(self, depth, player):
+        if depth == 0 or self.is_finish(3 - player):
+            return self.evaluation()
+
         positions = self.board.get_empty_positions()
-        max_score = - 100
+        max_score = -100
         min_score = 100
         for position in positions:
-            if depth and player == self.ID:
+            if player == self.ID:
                 self.board.set_cell(position, player)
-                score = self.minimax(depth - 1, 3 - player, position)
-                self.board.set_cell(position, 0)
-                if max_score < score:
-                    max_score = score
+                score = self.minimax(depth - 1, 3 - self.ID)
+                max_score = max(max_score, score)
                 if depth == self.depth:
-                    self.score_positions.append([position, max_score])
-
-            if depth and player != self.ID:
+                    self.best_positions.append([position, max_score])
+            else:
                 self.board.set_cell(position, player)
-                score = self.minimax(depth - 1, 3 - player, position)
-                self.board.set_cell(position, 0)
-                if min_score > score:
-                    min_score = score
+                score = self.minimax(depth - 1, self.ID)
+                min_score = min(min_score, score)
+            self.board.set_zero(position)
 
         if player == self.ID:
             return max_score
         else:
             return min_score
 
-# 게임을 관리하고 진행하는 클래스
+
 class Tictactoe:
-    # 이곳에서 모든 객체를 생성한다.
     def __init__(self):
         self.board = Board()
         self.display = Display()
@@ -278,7 +267,6 @@ class Tictactoe:
         Player.display = self.display
         self.user = User()
         self.computer = AI()
-        # if문을 생략하기 위해서 list사용
         self.player = [self.user, self.computer]
 
     def init_game(self):
@@ -286,12 +274,8 @@ class Tictactoe:
         self.display.set_str_board()
         self.display.print_str_board()
 
-    def is_continue(self):
-        return self.display.is_continue()
-
-    # 게임이 끝이났나 검사
-    def is_finish(self, player, point):
-        if player.is_win(player.ID, point):
+    def is_finish(self, player):
+        if player.is_win(player.ID):
             self.display.show_message(player.ID)
         elif player.is_draw():
             self.display.show_message(0)
@@ -299,20 +283,18 @@ class Tictactoe:
             return False
         return True
 
-    # 실제로 게임이 진행되는 곳
+    def is_continue(self):
+        return self.display.is_continue()
+
     def play_game(self):
-        # 게임이 시작되면 선을 가린다.
         player = random.choice(self.player)
         if player.ID == 2:
             player.first = True
-        while True: # 게임이 끝날 때까지 계속 반복
-            # 누구 차례인지 화면에 출력
+        while True:
             player.show_order(player.ID)
             position = player.action()
-            row, col = self.board.get_row_col(position)
-            if self.is_finish(player, [col, row]):
+            if self.is_finish(player):
                 break
-            # 선수 교체(Turn을 바꿈)
             player = self.player[2 - player.ID]      
 
 
