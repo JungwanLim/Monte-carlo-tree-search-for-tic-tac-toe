@@ -2,6 +2,7 @@ import random
 from abc import*
 import copy
 import math
+import datetime
 
 LEFT = (-1, 0)
 RIGHT = (1, 0)
@@ -166,7 +167,7 @@ class Player(metaclass = ABCMeta):
     def show_result(self, position, player):
         self.board.set_cell(position, player) # 보드에 저장
         self.display.mark_str_board(position + 1, player) # 화면에 보여질 보드에 저장
-        self.display.print_str_board() # 한 수 둔 결과를 보여줌
+        # self.display.print_str_board() # 한 수 둔 결과를 보여줌
         return position
 
     # 승리를 검사하는 함수
@@ -191,16 +192,19 @@ class Player(metaclass = ABCMeta):
         pass
 
 class User(Player):
-    def __init__(self):
+    def __init__(self, mcts):
         self.ID = 1
+        self.mcts = mcts
 
     def action(self):
-        while True:
-            position = self.display.input_data(self.ID)
-            if self.board.get_cell(position) != 0:
-                self.display.show_message()
-            else:
-                return self.show_result(position, self.ID)
+        position = self.mcts.mcts(self.ID, 1500)
+        return self.show_result(position, self.ID)
+        # while True:
+        #     position = self.display.input_data(self.ID)
+        #     if self.board.get_cell(position) != 0:
+        #         self.display.show_message()
+        #     else:
+        #         return self.show_result(position, self.ID)
 
 class AI(Player):
     def __init__(self, mcts):
@@ -242,14 +246,14 @@ class AI(Player):
             return -1
 
     def action(self):
-        # if self.first:
-        #     position = self.get_first_position()
-        #     self.first = False
-        # else:
-            # self.minimax(self.depth, self.ID, -1000, 1000)
-            # position = self.get_best_position()
-        position = self.mcts.mcts(self.ID, 500)
-        # self.best_positions = []
+        if self.first:
+            position = self.get_first_position()
+            self.first = False
+        else:
+            self.minimax(self.depth, self.ID, -1000, 1000)
+            position = self.get_best_position()
+        # position = self.mcts.mcts(self.ID, 500)
+        self.best_positions = []
         return self.show_result(position, self.ID)
 
     def minimax(self, depth, player, alpha, beta):
@@ -318,7 +322,7 @@ class Node:
     def get_uct_value(self):
         ucts = []
         for node in self.child:
-            uct = node.score / node.visit_number + math.sqrt(0.8 * math.log(self.visit_number) / node.visit_number)
+            uct = node.score / node.visit_number + math.sqrt(1.1 * math.log(self.visit_number) / node.visit_number)
             ucts.append(uct)
         index = self.get_max_uct_index(ucts)
         return self.child[index]
@@ -329,11 +333,11 @@ class Node:
     def get_result(self, board, player):
         if board.is_win(player):
             if player == 3 - self.player:
-                return 1
+                return 2
             else: 
                 return 0
         elif board.is_draw():
-            return 0.5
+            return 1
 
     def random_play(self, board, player):
         while not self.is_finish(player, board):
@@ -361,12 +365,11 @@ class Monte_carlo_tree_search:
             result = self.simulation()
             self.update_node(result)
 
-        for n in node.child:
-            print(n.board.current_position + 1, n.score, n.visit_number)
+        # for n in node.child:
+        #     print(n.board.current_position + 1, n.score, n.visit_number)
         return self.get_best_position(node)
 
     def get_best_position(self, node):
-        print(len(node.child))
         node.child.sort()
         return node.child[-1].board.current_position
     
@@ -391,8 +394,11 @@ class Monte_carlo_tree_search:
             self.node.score += result
             self.node.visit_number += 1
             self.node = self.node.parent
-            result = (result + 1) % 2
-
+            # result = (result + 1) % 2
+            if result == 2:
+                result = 0
+            elif result == 0:
+                result = 2
 
 class Tictactoe:
     def __init__(self):
@@ -401,20 +407,23 @@ class Tictactoe:
         Player.board = self.board
         Player.display = self.display
         self.mcts = Monte_carlo_tree_search(self.board)
-        self.user = User()
+        self.user = User(self.mcts)
         self.computer = AI(self.mcts)
         self.player = [self.user, self.computer]
+        self.win_count = [0, 0, 0]
 
     def init_game(self):
         self.board.set_board()
         self.display.set_str_board()
-        self.display.print_str_board()
+        # self.display.print_str_board()
 
     def is_finish(self, player):
         if player.is_win(player.ID):
-            self.display.show_message(player.ID)
+            # self.display.show_message(player.ID)
+            self.win_count[player.ID] += 1
         elif player.is_draw():
-            self.display.show_message(0)
+            # self.display.show_message(0)
+            self.win_count[0] += 1
         else:
             return False
         return True
@@ -427,8 +436,8 @@ class Tictactoe:
         if player.ID == 2:
             player.first = True
         while True:
-            player.show_order(player.ID)
-            position = player.action()
+            # player.show_order(player.ID)
+            player.action()
             if self.is_finish(player):
                 break
             player = self.player[2 - player.ID]      
@@ -437,12 +446,19 @@ class Tictactoe:
 def main():
     # 게임을 관리하는 객체만 있으면 됨
     ttt = Tictactoe()
-    while True:
-        # 게임시 시작되면 필요한 데이터를 초기화
+    start = datetime.datetime.now()
+    for i in range(100):
         ttt.init_game()
         ttt.play_game()
-        if not ttt.is_continue():
-            break
+    end = datetime.datetime.now()
+    print("Draw : {0}, Mcts win : {1}, alpha beta win : {2}".format(ttt.win_count[0], ttt.win_count[1], ttt.win_count[2]))
+    print("elipsed time = ", end - start)
+    # while True:
+    #     # 게임시 시작되면 필요한 데이터를 초기화
+    #     ttt.init_game()
+    #     ttt.play_game()
+    #     if not ttt.is_continue():
+    #         break
 
 if __name__ == "__main__":
     main()  
